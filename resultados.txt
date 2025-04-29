@@ -1,0 +1,4 @@
+5 C+ S+ T-2 S+ S+
+4 C+ S+ T3 S+
+NO SE PUEDE
+6 C+ C+ C+ S+ T2 C+
