@@ -2,111 +2,130 @@
 import sys
 from collections import deque
 
-class State:
-    __slots__ = ('pos', 'energy', 'parent', 'action')
-    def __init__(self, pos, energy, parent, action):
-        self.pos = pos
-        self.energy = energy
-        self.parent = parent      
-        self.action = action      
+def find(parent, x):
+    # Encuentra la raíz con compresión de rutas
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
 
-class DSU:
-    def __init__(self, size):
-        self.parent = list(range(size))
-    def find(self, x):
-        if self.parent[x] != x:
-            self.parent[x] = self.find(self.parent[x])
-        return self.parent[x]
-    def union(self, x, y):
-        rx = self.find(x)
-        ry = self.find(y)
-        if rx != ry:
-            self.parent[rx] = ry
+def union(parent, a, b):
+    ra = find(parent, a)
+    rb = find(parent, b)
+    if ra != rb:
+        parent[ra] = rb
 
 def solve_case(n, energy_start, robots, powers):
-    # Prepara DSU para saltar sobre ls paltaformas
-    dsu = DSU(n + 2)
+    # DSU para teletransportes (plataformas con robots)
+    dsu_parent = list(range(n + 2))
     for r in robots:
         if 0 <= r <= n:
-            dsu.union(r, r + 1)
+            union(dsu_parent, r, r + 1)
 
+    # visited_energy[i] = mejor energía al llegar a i
     visited_energy = [-1] * (n + 1)
-    dq = deque()
-    #Estado inicial
-    dq.append(State(0, energy_start, None, None))
     visited_energy[0] = energy_start
 
-    while dq:
-        st = dq.popleft()
-        pos, energy = st.pos, st.energy
+    # Estructuras para estados sin clases
+    state_pos = [0]
+    state_energy = [energy_start]
+    state_parent = [-1]
+    state_action = [None]
 
-        #Si llegamos a la meta, reconstruimos ruta:
+    dq = deque([0])  # cola de índices de estado
+
+    while dq:
+        idx = dq.popleft()
+        pos = state_pos[idx]
+        energy = state_energy[idx]
+
+        # Meta alcanzada
         if pos == n:
+            # Reconstruir ruta
             actions = []
-            cur = st
-            while cur.parent is not None:
-                actions.append(cur.action)
-                cur = cur.parent
+            cur = idx
+            while state_parent[cur] != -1:
+                actions.append(state_action[cur])
+                cur = state_parent[cur]
             actions.reverse()
             return actions
 
-        # 1.Caminar normal
-        for delta, token in ((1, "C+"), (-1, "C-")):
+        # 1) Caminar normal
+        for delta, token in ((1, 'C+'), (-1, 'C-')):
             j = pos + delta
             if 0 <= j <= n and j not in robots:
-                if energy > visited_energy[j]:
-                    visited_energy[j] = energy
-                    dq.append(State(j, energy, st, token))
+                new_energy = energy
+                if new_energy > visited_energy[j]:
+                    visited_energy[j] = new_energy
+                    # crear nuevo estado
+                    state_parent.append(idx)
+                    state_action.append(token)
+                    state_pos.append(j)
+                    state_energy.append(new_energy)
+                    dq.append(len(state_pos) - 1)
 
-        # 2. Salto potenciado
+        # 2) Salto potenciado
         if pos in powers:
             k = powers[pos]
-            for delta, token in ((k, "S+"), (-k, "S-")):
+            for delta, token in ((k, 'S+'), (-k, 'S-')):
                 j = pos + delta
                 if 0 <= j <= n and j not in robots:
-                    if energy > visited_energy[j]:
-                        visited_energy[j] = energy
-                        dq.append(State(j, energy, st, token))
+                    new_energy = energy
+                    if new_energy > visited_energy[j]:
+                        visited_energy[j] = new_energy
+                        state_parent.append(idx)
+                        state_action.append(token)
+                        state_pos.append(j)
+                        state_energy.append(new_energy)
+                        dq.append(len(state_pos) - 1)
 
-        # 3. Teletransportación (DSU para saltar plataformas con robots)
+        # 3) Teletransportación
         low = max(0, pos - energy)
         high = min(n, pos + energy)
-        j = dsu.find(low)
+        j = find(dsu_parent, low)
         while j <= high:
             new_energy = energy - abs(pos - j)
             if new_energy >= 0 and new_energy > visited_energy[j]:
                 visited_energy[j] = new_energy
-                dq.append(State(j, new_energy, st, f"T{j - pos}"))
-            dsu.union(j, j + 1)
-            j = dsu.find(j)
+                state_parent.append(idx)
+                state_action.append(f'T{j - pos}')
+                state_pos.append(j)
+                state_energy.append(new_energy)
+                dq.append(len(state_pos) - 1)
+            union(dsu_parent, j, j + 1)
+            j = find(dsu_parent, j)
 
-    # No es posible
+    # No se pudo
     return None
+
 
 def main():
     input = sys.stdin.readline
-    T_line = input().strip()
-    if not T_line:
+    line = input().strip()
+    if not line:
         return
-    T = int(T_line)
+    T = int(line)
     out = []
     for _ in range(T):
-        # Leer caso
+        # Leer n y e
         line = input().strip()
         while not line:
             line = input().strip()
         n, e = map(int, line.split())
-        robots = set(map(int, input().split())) if n >= 0 else set()
-        parts = list(map(int, input().split()))
+        # Robots
+        robots_line = input().strip()
+        robots = set(map(int, robots_line.split())) if robots_line else set()
+        # Powers
+        powers_line = input().strip()
+        parts = list(map(int, powers_line.split())) if powers_line else []
         powers = {parts[i]: parts[i+1] for i in range(0, len(parts), 2)}
 
-        res = solve_case(n, e, robots, powers)
-        if res is None:
-            out.append("NO SE PUEDE")
+        actions = solve_case(n, e, robots, powers)
+        if actions is None:
+            out.append('NO SE PUEDE')
         else:
-            out.append(f"{len(res)} {' '.join(res)}")
-
+            out.append(f"{len(actions)} {' '.join(actions)}")
     sys.stdout.write("\n".join(out))
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
