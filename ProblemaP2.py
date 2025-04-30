@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import sys
 from collections import deque
 
@@ -15,7 +14,7 @@ def union(parent, a, b):
     if ra != rb:
         parent[ra] = rb
 
-def solve_case(n, energy_start, robots, powers):
+def solucion(n, energy_start, robots, powers):
     # DSU para teletransportes (plataformas con robots)
     dsu_parent = list(range(n + 2))
     for r in robots:
@@ -120,7 +119,7 @@ def main():
         parts = list(map(int, powers_line.split())) if powers_line else []
         powers = {parts[i]: parts[i+1] for i in range(0, len(parts), 2)}
 
-        actions = solve_case(n, e, robots, powers)
+        actions = solucion(n, e, robots, powers)
         if actions is None:
             out.append('NO SE PUEDE')
         else:
